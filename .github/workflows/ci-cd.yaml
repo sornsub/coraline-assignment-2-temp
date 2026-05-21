@@ -98,7 +98,7 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/orion-api:${{ env.IMAGE_TAG }}
 
       - name: Scan atlas-portal image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/atlas-portal:${{ env.IMAGE_TAG }}
           format: table
@@ -106,7 +106,7 @@ jobs:
           severity: CRITICAL,HIGH
 
       - name: Scan orion-api image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/orion-api:${{ env.IMAGE_TAG }}
           format: table
