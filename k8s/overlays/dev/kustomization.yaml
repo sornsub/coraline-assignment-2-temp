@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: atlas-dev
+namePrefix: dev-
+
+resources:
+  - ../../base
+
+images:
+  - name: ghcr.io/example/atlas-portal
+    newTag: dev
+  - name: ghcr.io/example/orion-api
+    newTag: dev
+
+patches:
+  - path: namespace-patch.yaml
+    target:
+      kind: Namespace
+      name: atlas-platform
+  - path: config-patch.yaml
+  - path: ingress-patch.yaml
+  - path: replicas-patch.yaml
+  - path: resources-patch.yaml

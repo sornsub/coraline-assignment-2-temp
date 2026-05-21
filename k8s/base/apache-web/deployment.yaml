@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apache-web
+  labels:
+    app.kubernetes.io/name: apache-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: apache-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: apache-web
+    spec:
+      containers:
+        - name: apache-web
+          image: httpd:2.4-alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: content
+              mountPath: /usr/local/apache2/htdocs/index.html
+              subPath: index.html
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 96Mi
+      volumes:
+        - name: content
+          configMap:
+            name: apache-web-content

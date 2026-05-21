@@ -1,0 +1,143 @@
+name: ci-cd
+
+on:
+  pull_request:
+  push:
+    branches:
+      - dev
+      - staging
+      - main
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  test-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Test atlas-portal
+        working-directory: apps/atlas-portal
+        run: |
+          npm install
+          npm run lint
+          npm test
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Test orion-api
+        working-directory: apps/orion-api
+        run: |
+          pip install -r requirements.txt
+          pytest
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Validate Kubernetes manifests
+        run: |
+          kubectl kustomize k8s/overlays/dev > /tmp/dev.yaml
+          kubectl kustomize k8s/overlays/staging > /tmp/staging.yaml
+          kubectl kustomize k8s/overlays/prod > /tmp/prod.yaml
+
+  build-scan-push:
+    runs-on: ubuntu-latest
+    needs: test-and-validate
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare image names
+        shell: bash
+        run: |
+          echo "IMAGE_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            echo "IMAGE_TAG=prod" >> "$GITHUB_ENV"
+          else
+            echo "IMAGE_TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build atlas-portal
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/atlas-portal
+          load: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/atlas-portal:${{ env.IMAGE_TAG }}
+
+      - name: Build orion-api
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/orion-api
+          load: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/orion-api:${{ env.IMAGE_TAG }}
+
+      - name: Scan atlas-portal image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/atlas-portal:${{ env.IMAGE_TAG }}
+          format: table
+          exit-code: "0"
+          severity: CRITICAL,HIGH
+
+      - name: Scan orion-api image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/orion-api:${{ env.IMAGE_TAG }}
+          format: table
+          exit-code: "0"
+          severity: CRITICAL,HIGH
+
+      - name: Push atlas-portal
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/atlas-portal
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/atlas-portal:${{ env.IMAGE_TAG }}
+
+      - name: Push orion-api
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/orion-api
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/orion-api:${{ env.IMAGE_TAG }}
+
+  deployment-plan:
+    runs-on: ubuntu-latest
+    needs: build-scan-push
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Explain deployment handoff
+        run: |
+          echo "dev branch deploys to dev."
+          echo "staging branch deploys to staging."
+          echo "main branch promotes to prod."
+          echo "Preferred deployment is GitOps, for example Argo CD or Flux watching k8s/overlays/<env>."
+          echo "Alternative manual command: kubectl apply -k k8s/overlays/<env>."

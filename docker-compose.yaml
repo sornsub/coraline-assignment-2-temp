@@ -1,0 +1,48 @@
+services:
+  portal:
+    build: ./apps/atlas-portal
+    environment:
+      APP_ENV: local
+      API_URL: http://localhost:8000
+      AIRFLOW_URL: http://localhost:8081
+      NOTEBOOK_URL: http://localhost:8888
+      APACHE_WEB_URL: http://localhost:8082
+      GRAFANA_URL: http://localhost:3000
+    ports:
+      - "8080:8080"
+    depends_on:
+      - api
+      - apache-web
+
+  api:
+    build: ./apps/orion-api
+    environment:
+      APP_ENV: local
+    ports:
+      - "8000:8000"
+
+  airflow:
+    image: apache/airflow:2.10.4
+    command: standalone
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "false"
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:-change-me-local-only}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags:ro
+    ports:
+      - "8081:8080"
+
+  apache-web:
+    image: httpd:2.4-alpine
+    volumes:
+      - ./apache-web/index.html:/usr/local/apache2/htdocs/index.html:ro
+    ports:
+      - "8082:80"
+
+  notebook-lab:
+    image: jupyter/base-notebook:python-3.12
+    command: start-notebook.py --NotebookApp.token='' --NotebookApp.password=''
+    ports:
+      - "8888:8888"

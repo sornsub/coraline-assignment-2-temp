@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orion-api
+  labels:
+    app.kubernetes.io/name: orion-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: orion-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: orion-api
+    spec:
+      containers:
+        - name: orion-api
+          image: ghcr.io/example/orion-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: platform-config
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi

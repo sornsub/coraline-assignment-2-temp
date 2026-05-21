@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-config
+data:
+  APP_ENV: staging
+  API_URL: http://staging-orion-api:8000
+  AIRFLOW_URL: http://staging-airflow:8080
+  NOTEBOOK_URL: http://staging-notebook-lab:8888
+  APACHE_WEB_URL: http://staging-apache-web:80
+  GRAFANA_URL: https://grafana-staging.example.internal
+  SERVICE_LINKS_JSON: |
+    [
+      {"name":"API Service","url":"http://staging-orion-api:8000","description":"Staging API"},
+      {"name":"Apache Airflow","url":"http://staging-airflow:8080","description":"Staging workflows"},
+      {"name":"Notebook Service","url":"http://staging-notebook-lab:8888","description":"Staging notebook workspace"},
+      {"name":"Apache HTTP Server","url":"http://staging-apache-web:80","description":"Staging Apache endpoint"},
+      {"name":"Monitoring/Grafana","url":"https://grafana-staging.example.internal","description":"Staging dashboards"}
+    ]

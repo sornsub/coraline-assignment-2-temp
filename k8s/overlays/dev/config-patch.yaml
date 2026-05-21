@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-config
+data:
+  APP_ENV: dev
+  API_URL: http://dev-orion-api:8000
+  AIRFLOW_URL: http://dev-airflow:8080
+  NOTEBOOK_URL: http://dev-notebook-lab:8888
+  APACHE_WEB_URL: http://dev-apache-web:80
+  GRAFANA_URL: https://grafana-dev.example.internal
+  SERVICE_LINKS_JSON: |
+    [
+      {"name":"API Service","url":"http://dev-orion-api:8000","description":"Development API"},
+      {"name":"Apache Airflow","url":"http://dev-airflow:8080","description":"Development workflows"},
+      {"name":"Notebook Service","url":"http://dev-notebook-lab:8888","description":"Development notebook workspace"},
+      {"name":"Apache HTTP Server","url":"http://dev-apache-web:80","description":"Development Apache endpoint"},
+      {"name":"Monitoring/Grafana","url":"https://grafana-dev.example.internal","description":"Development dashboards"}
+    ]

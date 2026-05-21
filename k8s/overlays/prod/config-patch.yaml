@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-config
+data:
+  APP_ENV: prod
+  API_URL: http://prod-orion-api:8000
+  AIRFLOW_URL: http://prod-airflow:8080
+  NOTEBOOK_URL: http://prod-notebook-lab:8888
+  APACHE_WEB_URL: http://prod-apache-web:80
+  GRAFANA_URL: https://grafana.example.internal
+  SERVICE_LINKS_JSON: |
+    [
+      {"name":"API Service","url":"http://prod-orion-api:8000","description":"Production API"},
+      {"name":"Apache Airflow","url":"http://prod-airflow:8080","description":"Production workflows"},
+      {"name":"Notebook Service","url":"http://prod-notebook-lab:8888","description":"Production notebook workspace"},
+      {"name":"Apache HTTP Server","url":"http://prod-apache-web:80","description":"Production Apache endpoint"},
+      {"name":"Monitoring/Grafana","url":"https://grafana.example.internal","description":"Production dashboards"}
+    ]

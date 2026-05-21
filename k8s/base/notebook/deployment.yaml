@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notebook-lab
+  labels:
+    app.kubernetes.io/name: notebook-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: notebook-lab
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: notebook-lab
+    spec:
+      containers:
+        - name: notebook-lab
+          image: jupyter/base-notebook:python-3.12
+          args: ["start-notebook.py", "--NotebookApp.token=''", "--NotebookApp.password=''"]
+          ports:
+            - containerPort: 8888
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi

@@ -1,0 +1,15 @@
+{
+  "name": "atlas-portal",
+  "version": "1.0.0",
+  "description": "Small internal platform portal demo for Coraline Challenge 2.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test",
+    "lint": "node --check src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "devDependencies": {}
+}
