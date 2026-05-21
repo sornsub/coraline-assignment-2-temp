@@ -42,7 +42,7 @@ services:
       - "8082:80"
 
   notebook-lab:
-    image: jupyter/base-notebook:python-3.12
+    image: quay.io/jupyter/base-notebook:2025-08-11
     command: start-notebook.py --NotebookApp.token='' --NotebookApp.password=''
     ports:
       - "8888:8888"

@@ -74,6 +74,7 @@ kubectl apply -k k8s/overlays/prod
 ```
 
 Production Airflow should use the official Apache Airflow Helm chart, backed by production-grade metadata database, executor, DAG distribution, logging, and secret management. The included Airflow manifest is intentionally simplified for the assignment.
+The included Kubernetes Airflow deployment runs `airflow standalone` with demo-only credentials so the web UI listens on port 8080 for local review.
 
 ## CI/CD Pipeline
 
@@ -157,4 +158,4 @@ Logging:
 - Real registry names, cluster credentials, DNS, TLS certificates, and cloud secret backends must be supplied by the deploying organization.
 - The notebook service is intentionally lightweight.
 - The notebook service disables token auth for local review only; production must add authentication and network controls.
-- Airflow production deployment should use the official Helm chart.
+- The Kubernetes Airflow deployment is a single-pod demo; production should use the official Helm chart.

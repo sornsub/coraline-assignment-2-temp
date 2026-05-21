@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: notebook-lab
-          image: jupyter/base-notebook:python-3.12
+          image: quay.io/jupyter/base-notebook:2025-08-11
           args: ["start-notebook.py", "--NotebookApp.token=''", "--NotebookApp.password=''"]
           ports:
             - containerPort: 8888

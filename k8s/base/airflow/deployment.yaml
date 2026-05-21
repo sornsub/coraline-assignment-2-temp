@@ -18,19 +18,42 @@ spec:
         - name: airflow
           image: apache/airflow:2.10.4
           imagePullPolicy: IfNotPresent
-          args: ["standalone"]
+          command: ["bash", "-c"]
+          args:
+            - exec airflow standalone
           env:
             - name: AIRFLOW__CORE__LOAD_EXAMPLES
               value: "false"
             - name: AIRFLOW__WEBSERVER__EXPOSE_CONFIG
               value: "false"
+            - name: AIRFLOW__WEBSERVER__WEB_SERVER_HOST
+              value: "0.0.0.0"
+            - name: AIRFLOW__WEBSERVER__WEB_SERVER_PORT
+              value: "8080"
+            - name: _AIRFLOW_WWW_USER_USERNAME
+              value: "admin"
+            - name: _AIRFLOW_WWW_USER_PASSWORD
+              value: "change-me-demo-only"
           ports:
             - containerPort: 8080
+              name: http
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 60
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 120
+            periodSeconds: 20
           resources:
             requests:
               cpu: 250m
