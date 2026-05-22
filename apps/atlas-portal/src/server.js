@@ -1,7 +1,10 @@
 const express = require("express");
+const promClient = require("prom-client");
 
 const app = express();
 const port = process.env.PORT || 8080;
+
+promClient.collectDefaultMetrics();
 
 function parseLinks() {
   const fallback = [
@@ -26,6 +29,11 @@ function parseLinks() {
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "atlas-portal" });
+});
+
+app.get("/metrics", async (_req, res) => {
+  res.set("Content-Type", promClient.register.contentType);
+  res.end(await promClient.register.metrics());
 });
 
 app.get("/", (_req, res) => {
