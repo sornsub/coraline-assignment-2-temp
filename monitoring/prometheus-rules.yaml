@@ -1,0 +1,193 @@
+# Prometheus Alert Rules — Platform Demo
+#
+# This file defines example PrometheusRule resources for the atlas-platform.
+# It uses the Prometheus Operator CRD format (monitoring.coreos.com/v1).
+#
+# Purpose: design evidence for the Coraline Challenge 2 assignment.
+# This file is NOT applied to a live cluster in this repository.
+#
+# Prerequisites for real use:
+#   - Prometheus Operator installed in the cluster
+#   - kube-state-metrics for Kubernetes state metrics (pod ready, etc.)
+#   - cAdvisor for container resource metrics (memory, CPU)
+#   - Application services exposing /metrics (e.g. prometheus-fastapi-instrumentator)
+#   - Airflow StatsD exporter or airflow-exporter for DAG metrics
+#   - Alertmanager configured with notification receivers (see monitoring/README.md)
+#
+# To validate YAML structure only (no cluster required):
+#   kubectl apply --dry-run=client -f monitoring/prometheus-rules.yaml
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: platform-service-alerts
+  # Update namespace to match the target environment:
+  #   atlas-dev | atlas-staging | atlas-prod
+  namespace: atlas-platform
+  labels:
+    # These labels must match the Prometheus Operator ruleSelector configuration.
+    prometheus: platform
+    role: alert-rules
+    app.kubernetes.io/part-of: atlas-platform
+spec:
+  groups:
+
+    # ─────────────────────────────────────────────
+    # Group 1: Service Availability
+    # Alerts when a monitored scrape target goes down
+    # or when a Kubernetes pod fails its readiness probe.
+    # ─────────────────────────────────────────────
+    - name: service-availability
+      rules:
+
+        - alert: ServiceTargetDown
+          # Fires when Prometheus cannot scrape one of the named service targets.
+          # The 'up' metric equals 0 when a scrape fails.
+          expr: |
+            up{job=~"atlas-portal|orion-api|airflow"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "Service scrape target is down: {{ $labels.job }}"
+            description: >
+              Prometheus cannot reach the scrape target for {{ $labels.job }}
+              (instance {{ $labels.instance }}).
+              The service may be down, crashing, or not exposing /metrics.
+              Check pod status: kubectl get pods -n {{ $labels.namespace }}
+
+        - alert: KubernetesPodNotReady
+          # Fires when any pod in an atlas-* namespace fails its readiness probe
+          # for more than 2 minutes. Requires kube-state-metrics.
+          expr: |
+            kube_pod_status_ready{
+              namespace=~"atlas-.*",
+              condition="true"
+            } == 0
+          for: 2m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "Pod not ready: {{ $labels.pod }}"
+            description: >
+              Pod {{ $labels.pod }} in namespace {{ $labels.namespace }}
+              has been in a not-ready state for more than 2 minutes.
+              Check events: kubectl describe pod {{ $labels.pod }} -n {{ $labels.namespace }}
+
+    # ─────────────────────────────────────────────
+    # Group 2: HTTP Error Rate
+    # Alerts on elevated HTTP 5xx response rate from
+    # instrumented application services.
+    # Requires services to expose http_requests_total
+    # (e.g. via prometheus-fastapi-instrumentator for orion-api,
+    # prom-client for atlas-portal).
+    # ─────────────────────────────────────────────
+    - name: http-errors
+      rules:
+
+        - alert: HighHttp5xxRate
+          # Fires when more than 5% of requests result in a 5xx status
+          # over a 5-minute rolling window, across any instrumented service.
+          expr: |
+            (
+              sum by (job) (
+                rate(http_requests_total{
+                  status=~"5..",
+                  namespace=~"atlas-.*"
+                }[5m])
+              )
+            )
+            /
+            (
+              sum by (job) (
+                rate(http_requests_total{
+                  namespace=~"atlas-.*"
+                }[5m])
+              )
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "High HTTP 5xx error rate on {{ $labels.job }}"
+            description: >
+              More than 5% of requests to {{ $labels.job }} are returning
+              HTTP 5xx responses over the last 5 minutes.
+              Current rate: {{ $value | humanizePercentage }}.
+              Check application logs and upstream dependencies.
+
+    # ─────────────────────────────────────────────
+    # Group 3: Resource Pressure
+    # Alerts when container memory usage approaches the configured limit.
+    # Requires cAdvisor metrics, which are available by default in most
+    # Kubernetes distributions (e.g. via kubelet /metrics/cadvisor).
+    # ─────────────────────────────────────────────
+    - name: resource-pressure
+      rules:
+
+        - alert: HighContainerMemoryUsage
+          # Fires when a container's working set memory exceeds 90% of its
+          # configured memory limit. Only evaluates containers with a limit set.
+          expr: |
+            (
+              container_memory_working_set_bytes{
+                namespace=~"atlas-.*",
+                container!="",
+                container!="POD"
+              }
+            )
+            /
+            (
+              container_spec_memory_limit_bytes{
+                namespace=~"atlas-.*",
+                container!="",
+                container!="POD"
+              } > 0
+            ) > 0.90
+          for: 10m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Container memory near limit: {{ $labels.container }}"
+            description: >
+              Container {{ $labels.container }} in pod {{ $labels.pod }}
+              (namespace {{ $labels.namespace }}) is using more than 90% of its
+              configured memory limit for the last 10 minutes.
+              Current usage: {{ $value | humanizePercentage }} of limit.
+              Consider increasing the memory limit or investigating a memory leak.
+
+    # ─────────────────────────────────────────────
+    # Group 4: Workflow Orchestration
+    # Alerts on Airflow DAG failures.
+    # Requires one of:
+    #   - Airflow StatsD exporter (statsd_exporter sidecar or separate pod)
+    #   - airflow-exporter (community Prometheus exporter for Airflow)
+    # Metric name may differ depending on the exporter used.
+    # ─────────────────────────────────────────────
+    - name: airflow-workflows
+      rules:
+
+        - alert: AirflowDagFailure
+          # Fires when one or more Airflow DAG runs transition to the 'failed'
+          # state within a 5-minute window.
+          # Adjust the metric name to match the exporter in use:
+          #   airflow_dag_run_failed_total   (Airflow StatsD exporter)
+          #   airflow_task_fail_total        (alternative exporter)
+          expr: |
+            increase(airflow_dag_run_failed_total[5m]) > 0
+          for: 0m
+          labels:
+            severity: warning
+            team: data-platform
+          annotations:
+            summary: "Airflow DAG failure detected"
+            description: >
+              One or more Airflow DAG runs have failed in the last 5 minutes.
+              Check the Airflow web UI for details:
+              http://airflow.<namespace>.svc.cluster.local:8080
+              Review the failed DAG run logs and upstream data source connectivity.
