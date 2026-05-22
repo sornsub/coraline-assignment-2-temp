@@ -1,0 +1,13 @@
+apiVersion: 1
+
+# Grafana datasource provisioning for local Docker Compose demo.
+# This file is auto-loaded by Grafana at startup via the provisioning volume mount.
+
+datasources:
+  - name: Prometheus Local
+    uid: prometheus-local
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true

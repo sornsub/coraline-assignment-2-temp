@@ -11,7 +11,7 @@ The design covers:
 - A CI/CD pipeline with automated testing, image scanning, and GitOps-style deployment
 - Operational readiness: health checks, readiness probes, and observability design
 
-> `app2.zip` was inspected as an architecture reference only. This project does not copy proprietary names, images, hosts, IPs, passwords, or secrets from that archive.
+> `app2.zip` was used as an architecture reference during development only and is not included in this repository. This project does not copy proprietary names, images, hosts, IPs, passwords, or secrets from that archive.
 
 ---
 
@@ -22,6 +22,8 @@ The design covers:
 | [docs/architecture.md](docs/architecture.md) | System architecture diagrams, CI/CD flow, and release promotion |
 | [docs/cicd-pipeline.md](docs/cicd-pipeline.md) | Full CI/CD pipeline stages, branch mapping, image tagging, GitOps handoff |
 | [docs/environments.md](docs/environments.md) | dev / staging / prod environment strategy and Kustomize overlay breakdown |
+| [monitoring/README.md](monitoring/README.md) | Observability design: Prometheus, Grafana, Alertmanager, logging approach |
+| [monitoring/prometheus-rules.yaml](monitoring/prometheus-rules.yaml) | Example PrometheusRule CRD with 5 alert definitions (design evidence) |
 
 ---
 
@@ -85,14 +87,16 @@ For the full diagram see **[docs/architecture.md](docs/architecture.md)**.
 
 4. Access services:
 
-   | Service | Local URL |
-   |---|---|
-   | Portal | `http://localhost:8080` |
-   | API | `http://localhost:8000` |
-   | API source catalog | `http://localhost:8000/api/v1/sources` |
-   | Airflow | `http://localhost:8081` |
-   | Apache web | `http://localhost:8082` |
-   | Notebook | `http://localhost:8888` |
+   | Service | Local URL | Notes |
+   |---|---|---|
+   | Portal | `http://localhost:8080` | |
+   | API | `http://localhost:8000` | |
+   | API source catalog | `http://localhost:8000/api/v1/sources` | |
+   | Airflow | `http://localhost:8081` | |
+   | Apache web | `http://localhost:8082` | |
+   | Notebook | `http://localhost:8888` | |
+   | Prometheus | `http://localhost:9090` | Targets → app scrape targets show down until Phase 2 instrumentation |
+   | Grafana | `http://localhost:3000` | Credentials: admin / admin (demo only) — dashboard auto-loads under Atlas Platform |
 
 5. Stop the stack:
    ```bash
@@ -165,8 +169,10 @@ Key differences across environments:
 |---|---|---|---|
 | Replicas (portal) | 1 | 1 | 3 |
 | Replicas (API) | 1 | 1 | 3 |
-| CPU limit (portal / API) | 250m / 300m | 250m / 300m | 500m / 1000m |
-| Memory limit (portal / API) | 128Mi / 256Mi | 128Mi / 256Mi | 256Mi / 512Mi |
+| CPU request (portal / API) | 50m / 50m | 100m / 100m | 150m / 200m |
+| CPU limit (portal / API) | 200m / 250m | 300m / 500m | 500m / 1000m |
+| Memory request (portal / API) | 64Mi / 96Mi | 96Mi / 128Mi | 128Mi / 256Mi |
+| Memory limit (portal / API) | 128Mi / 256Mi | 192Mi / 384Mi | 256Mi / 512Mi |
 
 For the full breakdown of config, secrets, image tags, and Kustomize structure, see **[docs/environments.md](docs/environments.md)**.
 
@@ -365,7 +371,7 @@ Alerts are routed via Alertmanager to Slack (low-severity) and PagerDuty (high-s
 | Airflow | Single-pod `standalone` mode for demo; production must use the official Helm chart |
 | Monitoring runtime | Prometheus, Grafana, and Alertmanager are design components only; runtime setup is outside assignment scope |
 | Secret backends | External Secrets Operator, Vault, or equivalent must be provisioned by the deploying organisation |
-| `app2.zip` | Retained as architecture reference archive; not deployed or extracted in CI |
+| `app2.zip` | Used as architecture reference during development only; not included in this repository |
 
 ---
 
@@ -386,6 +392,9 @@ Alerts are routed via Alertmanager to Slack (low-severity) and PagerDuty (high-s
 ├── k8s/
 │   ├── base/                         # Shared Kubernetes resources
 │   └── overlays/dev|staging|prod/    # Environment-specific Kustomize patches
+├── monitoring/
+│   ├── prometheus-rules.yaml         # Example PrometheusRule CRD (5 alert rules)
+│   └── README.md                     # Observability design documentation
 ├── .env.example                      # Placeholder local environment variables
 └── docker-compose.yaml               # Local review stack (all 5 services)
 ```

@@ -1,0 +1,14 @@
+apiVersion: 1
+
+# Grafana dashboard provider for local Docker Compose demo.
+# Grafana auto-loads all JSON files from the configured path at startup.
+
+providers:
+  - name: atlas-dashboards
+    orgId: 1
+    folder: Atlas Platform
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards

@@ -1,0 +1,47 @@
+# Prometheus scrape configuration for local Docker Compose demo.
+#
+# This file is used by the prometheus service in docker-compose.yaml.
+# It is separate from monitoring/prometheus-rules.yaml, which is a
+# Kubernetes PrometheusRule CRD and cannot be loaded by this Prometheus instance.
+#
+# Phase 1 (current): only the prometheus self-scrape target returns data.
+# All app targets (atlas-portal, orion-api, airflow) will report up=0
+# because those services do not yet expose a /metrics endpoint.
+# This is expected — see monitoring/README.md for the Phase 2 plan.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# No rule_files section:
+# monitoring/prometheus-rules.yaml is a Kubernetes PrometheusRule CRD
+# (apiVersion: monitoring.coreos.com/v1) and is not loadable here.
+# It remains as K8s design evidence only.
+
+scrape_configs:
+
+  # Prometheus self-monitoring — always returns data
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # atlas-portal — /metrics not yet implemented (Phase 2)
+  # will report up=0 until prom-client is added to the portal service
+  - job_name: "atlas-portal"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["portal:8080"]
+
+  # orion-api — /metrics not yet implemented (Phase 2)
+  # will report up=0 until prometheus-fastapi-instrumentator is added
+  - job_name: "orion-api"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8000"]
+
+  # airflow — /metrics not available in the default Airflow image
+  # would require a StatsD exporter sidecar (outside Phase 1 scope)
+  - job_name: "airflow"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["airflow:8080"]

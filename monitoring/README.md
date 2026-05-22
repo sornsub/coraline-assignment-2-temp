@@ -1,9 +1,10 @@
 # Monitoring and Observability
 
 > **Assignment note:** This directory contains design evidence for the observability layer of the atlas-platform.
-> The files here describe how monitoring, alerting, and logging are designed to work — they are **not deployed
-> as part of this repository**. No live Prometheus, Grafana, or Alertmanager instance is required to review
-> this material. See the constraints section at the bottom for what is and is not in scope.
+> **Prometheus and Grafana are now deployed locally via `docker compose up`** (ports 9090 and 3000).
+> Application `/metrics` endpoints are not yet implemented — app scrape targets will show as unreachable
+> until Phase 2 instrumentation is added. Alertmanager and the log collection stack remain design intent only.
+> See the scope table at the bottom for the full status of each component.
 
 ---
 
@@ -85,12 +86,16 @@ Alert rules are defined in `monitoring/prometheus-rules.yaml` using the `Prometh
 
 ### Applying the rules to a cluster
 
-```bash
-# Apply to the target environment namespace
-kubectl apply -f monitoring/prometheus-rules.yaml -n atlas-prod
+Before applying, update the `namespace` field in `monitoring/prometheus-rules.yaml` to match the target environment (`atlas-dev`, `atlas-staging`, or `atlas-prod`). The namespace in the file metadata takes precedence; any `-n` flag on the command line is ignored for this resource.
 
-# Validate structure without a cluster
+`PrometheusRule` is a custom resource definition (CRD) provided by the Prometheus Operator. The Prometheus Operator must be installed in the cluster before this file can be applied.
+
+```bash
+# Validate YAML structure without a cluster (CRDs not required for dry-run client-side)
 kubectl apply --dry-run=client -f monitoring/prometheus-rules.yaml
+
+# Apply after updating the namespace field and confirming Prometheus Operator is installed
+kubectl apply -f monitoring/prometheus-rules.yaml
 ```
 
 The `PrometheusRule` resource is picked up automatically by the Prometheus Operator when the `prometheus` and `role` labels match the operator's `ruleSelector` configuration.
@@ -214,7 +219,7 @@ Pod (stdout / stderr)
 | Write to stdout / stderr only | Kubernetes logging infrastructure reads pod log streams; no log files to manage |
 | Use structured JSON format | Machine-readable; enables log filtering by field (e.g., `level`, `request_id`, `status`) |
 | Include a request ID header | Correlate logs across portal → API → external system calls |
-| Set log level via environment variable | `LOG_LEVEL` from the platform ConfigMap; change without rebuilding the image |
+| Set log level via environment variable | Add `LOG_LEVEL` to the platform ConfigMap per environment; applications read it at startup — no image rebuild needed |
 | Retain audit logs separately | External data access events should be retained independently for compliance |
 
 ### Log retention
@@ -250,9 +255,10 @@ This directory addresses that requirement as follows:
 
 | Item | Status |
 |---|---|
-| `prometheus-rules.yaml` | Design evidence — valid CRD YAML, not applied to a live cluster in this repo |
-| Prometheus runtime | Not deployed — requires Prometheus Operator (e.g., `kube-prometheus-stack` Helm chart) |
-| Grafana runtime | Not deployed — `GRAFANA_URL` is a placeholder in the platform ConfigMap |
-| Alertmanager config | Not deployed — no real webhook URLs or API keys in this repository |
+| `prometheus-rules.yaml` | Design evidence — Kubernetes PrometheusRule CRD; **not loaded by the docker-compose Prometheus instance** (CRD format is K8s-only) |
+| Prometheus runtime (docker-compose) | **Deployed** — `docker compose up` → `http://localhost:9090`; scrapes itself; app targets return `up=0` until Phase 2 |
+| Grafana runtime (docker-compose) | **Deployed** — `docker compose up` → `http://localhost:3000`; credentials admin/admin (demo only); dashboard auto-provisioned |
+| App `/metrics` endpoints | **Not yet implemented** — `atlas-portal` and `orion-api` do not expose Prometheus metrics; Phase 2 adds `prom-client` and `prometheus-fastapi-instrumentator` |
+| Alertmanager config | Not deployed — no real webhook URLs or API keys in this repository; design intent only |
 | Fluent Bit / log stack | Not deployed — log collection approach documented here as design intent |
-| Applying rules | `kubectl apply --dry-run=client -f monitoring/prometheus-rules.yaml` validates structure |
+| Applying K8s rules | `kubectl apply --dry-run=client -f monitoring/prometheus-rules.yaml` validates CRD structure |
